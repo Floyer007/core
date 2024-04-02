@@ -1,8 +1,10 @@
 """Test the Tado config flow."""
+
 from http import HTTPStatus
 from ipaddress import ip_address
 from unittest.mock import MagicMock, patch
 
+import PyTado
 import pytest
 import requests
 
@@ -60,13 +62,16 @@ async def test_form_exceptions(
     # Test a retry to recover, upon failure
     mock_tado_api = _get_mock_tado_api(getMe={"homes": [{"id": 1, "name": "myhome"}]})
 
-    with patch(
-        "homeassistant.components.tado.config_flow.Tado",
-        return_value=mock_tado_api,
-    ), patch(
-        "homeassistant.components.tado.async_setup_entry",
-        return_value=True,
-    ) as mock_setup_entry:
+    with (
+        patch(
+            "homeassistant.components.tado.config_flow.Tado",
+            return_value=mock_tado_api,
+        ),
+        patch(
+            "homeassistant.components.tado.async_setup_entry",
+            return_value=True,
+        ) as mock_setup_entry,
+    ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {"username": "test-username", "password": "test-password"},
@@ -127,13 +132,16 @@ async def test_create_entry(hass: HomeAssistant) -> None:
 
     mock_tado_api = _get_mock_tado_api(getMe={"homes": [{"id": 1, "name": "myhome"}]})
 
-    with patch(
-        "homeassistant.components.tado.config_flow.Tado",
-        return_value=mock_tado_api,
-    ), patch(
-        "homeassistant.components.tado.async_setup_entry",
-        return_value=True,
-    ) as mock_setup_entry:
+    with (
+        patch(
+            "homeassistant.components.tado.config_flow.Tado",
+            return_value=mock_tado_api,
+        ),
+        patch(
+            "homeassistant.components.tado.async_setup_entry",
+            return_value=True,
+        ) as mock_setup_entry,
+    ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {"username": "test-username", "password": "test-password"},
@@ -266,13 +274,16 @@ async def test_import_step(hass: HomeAssistant) -> None:
     """Test import step."""
     mock_tado_api = _get_mock_tado_api(getMe={"homes": [{"id": 1, "name": "myhome"}]})
 
-    with patch(
-        "homeassistant.components.tado.config_flow.Tado",
-        return_value=mock_tado_api,
-    ), patch(
-        "homeassistant.components.tado.async_setup_entry",
-        return_value=True,
-    ) as mock_setup_entry:
+    with (
+        patch(
+            "homeassistant.components.tado.config_flow.Tado",
+            return_value=mock_tado_api,
+        ),
+        patch(
+            "homeassistant.components.tado.async_setup_entry",
+            return_value=True,
+        ) as mock_setup_entry,
+    ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": config_entries.SOURCE_IMPORT},
@@ -344,6 +355,27 @@ async def test_import_step_validation_failed(hass: HomeAssistant) -> None:
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "import_failed"
+
+
+async def test_import_step_device_authentication_failed(hass: HomeAssistant) -> None:
+    """Test import step with device tracker authentication failed."""
+    with patch(
+        "homeassistant.components.tado.config_flow.Tado",
+        side_effect=PyTado.exceptions.TadoWrongCredentialsException,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_IMPORT},
+            data={
+                "username": "test-username",
+                "password": "test-password",
+                "home_id": 1,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "import_failed_invalid_auth"
 
 
 async def test_import_step_unique_id_configured(hass: HomeAssistant) -> None:
